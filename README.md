@@ -1,65 +1,73 @@
 # claude-browser
 
-A Claude Code plugin that provides visual browser tools for frontend development. It launches a Chromium browser via Playwright and exposes tools for element inspection, component detection, console/network monitoring, and performance analysis — all accessible from Claude Code.
+Claude Code MCP server for frontend development. Launch a browser, visually inspect elements, detect React/Vue/Svelte components, and monitor console/network/performance — all from your terminal.
+
+## What it does
+
+- **Visual element selection** — Hover over any element to see its component name, props, source file, and styles
+- **"→ Claude Code" button** — Click to auto-type `[Component #N]` into your Claude Code chat. Full component info is saved to a file that Claude reads automatically
+- **Component detection** — React, Vue 3, Svelte components with props and source file mapping
+- **Browser monitoring** — Console logs, network requests, Core Web Vitals (LCP, FCP, CLS, INP)
+- **Screenshots** — Capture page state for visual debugging
+- **Headless mode** — Claude can autonomously monitor your app in the background
 
 ## Installation
 
-### Prerequisites
-
-- Node.js 18+
-- Claude Code
-
-### Setup
-
 ```bash
-# Clone or navigate to the plugin directory
-cd claude-browser
-
-# Install dependencies
-npm install
-
-# Install Playwright Chromium browser
-npx playwright install chromium
-
-# Build the plugin
-npm run build
+npm install claude-browser
 ```
 
-### Register with Claude Code
+That's it. `postinstall` automatically:
+1. Installs Playwright Chromium
+2. Adds `claude-browser` to your project's `.mcp.json`
 
-Add the plugin to your Claude Code configuration (`~/.claude/settings.json` or project-level `.claude/settings.json`):
+Restart Claude Code or run `/mcp` to connect.
+
+### Manual setup (if needed)
+
+Add to your `.mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "claude-browser": {
       "command": "node",
-      "args": ["/absolute/path/to/claude-browser/dist/index.js"]
+      "args": ["node_modules/claude-browser/dist/index.js"]
     }
   }
 }
 ```
 
-## Usage with Claude Code
+## Usage
 
-Once installed, the browser tools are available in any Claude Code session. Use the `open-browser` skill to get started:
+### Quick start
 
 ```
-/open-browser http://localhost:3000
+/claude-browser:inspect http://localhost:3000
 ```
 
-Or instruct Claude directly:
+This launches the browser and enables element selection mode.
+
+### Element selection workflow
+
+1. Hover over elements to see component info in a tooltip
+2. Click **"→ Claude Code"** button on the tooltip
+3. `[Component #1: <Header>]` is auto-typed into your chat
+4. Compose your message: `[Component #1: <Header>] 이거를 [Component #2: <Card>] 안으로 옮겨줘`
+5. Claude reads the full component details from `.claude-browser/selections/`
+
+### Natural language
 
 ```
 Launch the browser at http://localhost:3000 and take a screenshot
 ```
 
 ```
-Open http://localhost:3000, select the navigation component, and show me its React props
+Check the console errors and failed network requests on localhost:3000
 ```
 
 ```
-Check the console logs and network errors on http://localhost:3000
+Open localhost:3000, inspect the component tree, and find the source file for DashboardCard
 ```
 
 ## Available Tools
@@ -68,117 +76,86 @@ Check the console logs and network errors on http://localhost:3000
 
 | Tool | Description |
 |------|-------------|
-| `browser_launch` | Launch a Chromium browser and navigate to a URL. Returns a screenshot of the loaded page. |
-| `browser_navigate` | Navigate the open browser to a new URL. |
-| `browser_screenshot` | Capture a screenshot of the current browser state. |
-| `browser_close` | Close the browser and release all resources. |
+| `browser_launch` | Launch Chromium and optionally navigate to a URL |
+| `browser_navigate` | Navigate to a new URL |
+| `browser_screenshot` | Capture a screenshot |
+| `browser_close` | Close the browser |
 
 ### Element Inspection
 
 | Tool | Description |
 |------|-------------|
-| `start_element_selection` | Enable visual selection mode — hover over elements in the browser to highlight them, then click to select. |
-| `get_selected_element` | Retrieve full details of the currently selected element: tag, classes, attributes, computed styles, React/Vue component name and props, and source file location. |
-| `stop_element_selection` | Disable visual selection mode. |
-| `inspect_element` | Inspect a specific element by CSS selector without entering selection mode. |
+| `start_element_selection` | Enable visual selection overlay with hover tooltips |
+| `get_selected_element` | Get details of the element selected via "→ Claude Code" button |
+| `stop_element_selection` | Disable selection overlay |
+| `inspect_element` | Inspect a specific element by CSS selector |
 
 ### Monitoring
 
 | Tool | Description |
 |------|-------------|
-| `get_console_logs` | Retrieve captured browser console messages (log, warn, error, info). Filterable by level. |
-| `get_network_requests` | Retrieve captured network requests with URL, method, status code, and response timing. |
-| `get_performance_metrics` | Measure Core Web Vitals: LCP (Largest Contentful Paint), FCP (First Contentful Paint), CLS (Cumulative Layout Shift), and TTFB. |
+| `get_console_logs` | Browser console messages, filterable by type (error, warn, all) |
+| `get_network_requests` | Network requests with status, timing, and optional failed-only filter |
+| `get_performance_metrics` | Core Web Vitals: LCP, FCP, CLS, INP |
 
 ### Component Analysis
 
 | Tool | Description |
 |------|-------------|
-| `get_component_tree` | Get the React/Vue component hierarchy for the current page, showing component names, props, and nesting. |
-| `find_component_source` | Locate the source file for a named component in the project directory. |
+| `get_component_tree` | React/Vue component hierarchy with names and props |
+| `find_component_source` | Locate source file for a component by name |
+
+## How auto-input works
+
+When you click "→ Claude Code" on the tooltip:
+
+1. Full component info is saved to `.claude-browser/selections/{N}.txt`
+2. A short reference `[Component #N: <Name>]` is typed into your terminal
+
+Platform support:
+- **macOS iTerm2** — `write text` AppleScript (instant)
+- **macOS Terminal.app** — `keystroke` AppleScript fallback
+- **Linux** — `xdotool type`
+- **Windows** — PowerShell `SendKeys`
 
 ## Example Workflows
 
-### Visual Debugging
+### Visual debugging
+```
+1. /claude-browser:inspect http://localhost:3000
+2. Click on the broken element → [Component #1: <UserCard>]
+3. "Fix [Component #1: <UserCard>], the avatar is overflowing its container"
+```
 
+### Performance audit
 ```
 1. browser_launch("http://localhost:3000")
-2. get_console_logs()                  # check for errors
-3. get_network_requests()              # check for failed API calls
-4. start_element_selection()           # enable click-to-inspect
-   [user clicks on broken element]
-5. get_selected_element()              # see component name + source file
+2. get_performance_metrics()        → Core Web Vitals
+3. get_network_requests()           → slow/failed requests
+4. browser_screenshot()             → visual state
 ```
 
-### Performance Audit
-
+### Autonomous monitoring
+Claude can launch a headless browser in the background while coding:
 ```
-1. browser_launch("http://localhost:3000")
-2. get_performance_metrics()           # Core Web Vitals snapshot
-3. get_network_requests()              # identify slow requests
-4. inspect_element(".hero-image")      # check largest contentful element
-```
-
-### Component Inspection
-
-```
-1. browser_launch("http://localhost:3000/dashboard")
-2. browser_screenshot()                # confirm page loaded
-3. get_component_tree()                # understand component hierarchy
-4. start_element_selection()
-   [user clicks on a card component]
-5. get_selected_element()              # get props + source file path
-6. find_component_source("DashboardCard")  # open source file location
+1. browser_launch({ url: "http://localhost:3000", headless: true })
+2. [make code changes]
+3. browser_navigate("http://localhost:3000")  → reload
+4. get_console_logs({ type: "error" })        → check for errors
+5. get_network_requests({ failedOnly: true }) → check API failures
 ```
 
-## Architecture
+## Supported Frameworks
 
-```
-claude-browser/
-├── src/
-│   ├── browser/
-│   │   ├── manager.ts        # Playwright lifecycle management (launch, navigate, close)
-│   │   └── types.ts          # Browser-related TypeScript types
-│   ├── inspector/
-│   │   ├── element-inspector.ts  # DOM inspection + React/Vue devtools bridge
-│   │   ├── source-mapper.ts      # Component name -> source file resolution
-│   │   └── types.ts              # Inspector TypeScript types
-│   ├── monitor/
-│   │   ├── console-monitor.ts    # Console message capture
-│   │   ├── network-monitor.ts    # Network request/response capture
-│   │   └── performance-monitor.ts # Core Web Vitals measurement
-│   └── overlay/
-│       ├── overlay-manager.ts    # Injected overlay lifecycle
-│       ├── overlay-script.ts     # In-browser JS for element highlighting
-│       └── overlay-styles.ts     # Overlay CSS styles
-├── agents/
-│   └── browser-dev.md        # Browser development specialist agent definition
-├── hooks/
-│   └── hooks.json            # Session start hook to verify Playwright install
-├── scripts/
-│   └── check-playwright.sh   # Playwright browser installation check
-└── skills/
-    └── open-browser/
-        └── SKILL.md          # /open-browser skill definition
-```
+| Framework | Component Name | Props | Source File |
+|-----------|:-:|:-:|:-:|
+| React | ✓ | ✓ | ✓ (dev mode) |
+| Vue 3 | ✓ | ✓ | ✓ |
+| Svelte | ✓ | — | — |
+| Plain HTML | tag + classes | — | — |
 
-The plugin exposes an MCP server (`dist/index.js`) that Claude Code connects to. Tools are registered at server startup and delegate to the appropriate source module. The browser state (page, monitors, overlay) is managed as a singleton across tool calls within a session.
+Element selection (tag, classes, styles, selector) works on **any** website regardless of framework.
 
-## Troubleshooting
+## License
 
-**Playwright Chromium not found**
-
-```bash
-npx playwright install chromium
-```
-
-**Build errors**
-
-```bash
-npm run build
-# Check TypeScript errors in src/
-```
-
-**Browser fails to launch**
-
-Ensure no other Playwright instances are running. Try `browser_close` then `browser_launch` again.
+MIT
