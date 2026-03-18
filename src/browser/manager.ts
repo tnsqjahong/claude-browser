@@ -25,13 +25,22 @@ class BrowserManager {
       await this.close();
     }
 
-    const browser: Browser = await chromium.launch({ headless: options.headless ?? false });
+    const browser: Browser = await chromium.launch({
+      headless: options.headless ?? false,
+      channel: 'chrome',
+      args: ['--disable-blink-features=AutomationControlled'],
+    });
 
     const context: BrowserContext = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
 
     const page: Page = await context.newPage();
+
+    // Hide automation detection
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    });
 
     if (options.url) {
       await page.goto(options.url, { waitUntil: 'domcontentloaded' });
