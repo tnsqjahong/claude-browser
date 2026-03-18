@@ -2,6 +2,13 @@
 
 DevTools for Claude Code. Point at a UI element, and Claude understands the component, its props, and where the source lives.
 
+## Installation
+
+```bash
+/plugin marketplace add tnsqjahong/claude-inspect
+/plugin install claude-inspect
+```
+
 ## Why
 
 You're debugging a frontend issue with Claude. To give it context, you open Chrome DevTools, copy the element, find the component name, look up the source file, paste it all into chat. Every time.
@@ -17,7 +24,7 @@ You're debugging a frontend issue with Claude. To give it context, you open Chro
 1. A browser opens. Every element on the page becomes hoverable — a blue overlay follows your cursor, and a tooltip shows the component name, props, source file, and styles in real-time
 2. See something you want Claude to look at? Click **"→ Claude Code"** on the tooltip
 3. `[Component #1: <Header>]` appears in your Claude Code chat with full context — component hierarchy, props, source path with line number, computed styles
-4. Ask Claude what you need: *"이 컴포넌트 왜 오른쪽으로 밀려있지?"*, *"이 버튼에 loading state 추가해줘"*
+4. Ask Claude what you need: *"Why is this component shifted to the right?"*, *"Add a loading state to this button"*
 
 Point at the problem, talk about it. Claude already knows the component, the file, and the props.
 
@@ -37,22 +44,15 @@ Take a screenshot of the current page
 /claude-inspect:inspect http://localhost:3000
 ```
 
-> 사이드바의 네비게이션 메뉴를 클릭 → "→ Claude Code"
+> Click the sidebar navigation menu → "→ Claude Code"
 
 ```
 [Component #1: <SideNav>] — src/components/SideNav.tsx:24
 ```
 
-> "이 컴포넌트에 active 상태 표시가 안 돼. 현재 라우트에 맞게 하이라이트 해줘"
+> "This component doesn't show the active state. Highlight it based on the current route."
 
 Claude reads the selection file, opens `src/components/SideNav.tsx`, and makes the fix — knowing the exact component, its props (`items`, `currentPath`), and where it lives.
-
-## Installation
-
-```bash
-/plugin marketplace add tnsqjahong/claude-inspect
-/plugin install claude-inspect
-```
 
 ## Features
 
