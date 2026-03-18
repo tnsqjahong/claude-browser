@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { browserManager } from './browser/manager.js';
-import { overlayManager } from './overlay/overlay-manager.js';
+import { overlayManager, type TerminalIdentity } from './overlay/overlay-manager.js';
 import { elementInspector } from './inspector/element-inspector.js';
 import { sourceMapper } from './inspector/source-mapper.js';
 import { consoleMonitor } from './monitor/console-monitor.js';
@@ -13,6 +13,14 @@ import { performanceMonitor } from './monitor/performance-monitor.js';
 
 const SESSION_DIR = join(process.cwd(), '.claude-inspect');
 const SESSION_FILE = join(SESSION_DIR, 'session.json');
+
+// Capture terminal identity passed from CLI at launch time
+const terminalIdentity: TerminalIdentity = {
+  termProgram: process.env.CLAUDE_INSPECT_TERM_PROGRAM || '',
+  itermSessionId: process.env.CLAUDE_INSPECT_ITERM_SESSION_ID || undefined,
+  windowId: process.env.CLAUDE_INSPECT_WINDOW_ID || undefined,
+};
+overlayManager.setTerminalIdentity(terminalIdentity);
 
 function json(res: ServerResponse, status: number, data: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json' });

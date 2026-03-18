@@ -28,6 +28,12 @@ export interface SelectedElementData {
     }>;
     formattedText?: string;
 }
+export interface TerminalIdentity {
+    termProgram: string;
+    itermSessionId?: string;
+    windowId?: string;
+    terminalTty?: string;
+}
 declare class OverlayManager {
     private isActive;
     private lastSelected;
@@ -35,6 +41,8 @@ declare class OverlayManager {
     private pendingReject;
     private exposedFunctions;
     private pageLoadHandler;
+    private terminalIdentity;
+    setTerminalIdentity(identity: TerminalIdentity): void;
     start(page: Page): Promise<void>;
     private injectOverlay;
     getSelectedElement(): SelectedElementData | null;

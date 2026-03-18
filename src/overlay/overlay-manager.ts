@@ -30,6 +30,13 @@ export interface SelectedElementData {
   formattedText?: string;
 }
 
+export interface TerminalIdentity {
+  termProgram: string;
+  itermSessionId?: string;
+  windowId?: string;       // Linux WINDOWID
+  terminalTty?: string;    // TTY path for Terminal.app
+}
+
 class OverlayManager {
   private isActive = false;
   private lastSelected: SelectedElementData | null = null;
@@ -37,6 +44,11 @@ class OverlayManager {
   private pendingReject: ((reason: unknown) => void) | null = null;
   private exposedFunctions = new Set<string>();
   private pageLoadHandler: (() => Promise<void>) | null = null;
+  private terminalIdentity: TerminalIdentity | null = null;
+
+  setTerminalIdentity(identity: TerminalIdentity): void {
+    this.terminalIdentity = identity;
+  }
 
   async start(page: Page): Promise<void> {
     if (!this.exposedFunctions.has('__claudeInspect_onElementSelected')) {
@@ -73,8 +85,9 @@ class OverlayManager {
     if (!this.exposedFunctions.has('__claudeInspect_sendToClaudeCode')) {
       let selectionCounter = 0;
 
-      // Detect terminal app once
-      const termProgram = process.env.TERM_PROGRAM || '';
+      // Resolve terminal app from captured identity (launch-time) or fallback to current env
+      const ti = this.terminalIdentity;
+      const termProgram = ti?.termProgram || process.env.TERM_PROGRAM || '';
       let appName = '';
       if (termProgram.includes('iTerm')) appName = 'iTerm2';
       else if (termProgram === 'Apple_Terminal') appName = 'Terminal';
@@ -91,14 +104,34 @@ class OverlayManager {
           mkdirSync(dir, { recursive: true });
           writeFileSync(join(dir, `${selectionCounter}.txt`), fullText, 'utf-8');
 
-          // Type short reference into terminal
+          // Type short reference into the original terminal that launched inspect
           const shortRef = `[Component #${selectionCounter}: <${componentName}>]`;
 
           if (process.platform === 'darwin') {
             const escaped = shortRef.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
-            if (appName === 'iTerm2') {
-              // iTerm2: direct write text (instant, no paste dialog)
+            if (appName === 'iTerm2' && ti?.itermSessionId) {
+              // iTerm2: target the exact session that launched inspect
+              // ITERM_SESSION_ID is "w0t0p0:UUID" but AppleScript uses UUID only
+              const uuid = ti.itermSessionId.includes(':')
+                ? ti.itermSessionId.split(':')[1]
+                : ti.itermSessionId;
+              const script = `
+                tell application "iTerm2"
+                  repeat with w in windows
+                    repeat with t in tabs of w
+                      repeat with s in sessions of t
+                        if id of s is "${uuid}" then
+                          tell s to write text "${escaped}" newline no
+                          return
+                        end if
+                      end repeat
+                    end repeat
+                  end repeat
+                end tell`;
+              exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`);
+            } else if (appName === 'iTerm2') {
+              // iTerm2 fallback: no session ID captured
               exec(`osascript -e 'tell application "iTerm2" to tell current session of current window to write text "${escaped}" newline no'`);
             } else {
               // Terminal.app / others: pbcopy + keystroke fallback
@@ -106,11 +139,16 @@ class OverlayManager {
               exec(`osascript -e 'tell application "${appName}" to activate' -e 'delay 0.5' -e 'tell application "System Events" to keystroke (do shell script "pbpaste")'`);
             }
           } else if (process.platform === 'linux') {
-            // Linux: xdotool type (simulates keyboard input)
-            const escaped = shortRef.replace(/'/g, "'\\''");
-            exec(`xdotool type --delay 0 '${escaped}'`);
+            if (ti?.windowId) {
+              // Linux: target the exact window that launched inspect
+              const escaped = shortRef.replace(/'/g, "'\\''");
+              exec(`xdotool type --window ${ti.windowId} --delay 0 '${escaped}'`);
+            } else {
+              const escaped = shortRef.replace(/'/g, "'\\''");
+              exec(`xdotool type --delay 0 '${escaped}'`);
+            }
           } else if (process.platform === 'win32') {
-            // Windows: PowerShell SendKeys
+            // Windows: PowerShell SendKeys (no reliable window targeting)
             const escaped = shortRef.replace(/'/g, "''");
             exec(`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${escaped}')"`)
           }

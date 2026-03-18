@@ -96,6 +96,13 @@ async function launchDaemon() {
             cwd: process.cwd(),
             detached: true,
             stdio: ['ignore', 'pipe', 'ignore'],
+            env: {
+                ...process.env,
+                // Pass terminal identity so daemon can target the original terminal
+                CLAUDE_INSPECT_TERM_PROGRAM: process.env.TERM_PROGRAM || '',
+                CLAUDE_INSPECT_ITERM_SESSION_ID: process.env.ITERM_SESSION_ID || '',
+                CLAUDE_INSPECT_WINDOW_ID: process.env.WINDOWID || '',
+            },
         });
         let output = '';
         const timeout = setTimeout(() => {
